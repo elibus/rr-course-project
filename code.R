@@ -1,5 +1,6 @@
 # Required library
 require(data.table)
+require(lubridate)
 
 # Download & load data
 fileUrl <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
@@ -17,7 +18,9 @@ if (!file.exists(destFile)) {
 
 # Read data - only relevant columns
 colClasses = c(
-  rep("NULL", 7),
+  "NULL",
+  "character",
+  rep("NULL", 5),
   "character",  # EVTYPE
   rep("NULL", 14),
   rep("numeric", 3),
@@ -30,13 +33,13 @@ colClasses = c(
 df <- read.table(
   bzfile(destFile),
   sep = ",",
-  header = FALSE,
+  header = TRUE,
   quote = "\"",
-  colClasses = colClasses,
-  skip = 290000
+  colClasses = colClasses
 )
 
 colnames(df) <- c(
+  "BGN_DATE",
   "EVTYPE",
   "FATALITIES",
   "INJURIES",
@@ -46,8 +49,9 @@ colnames(df) <- c(
   "CROPDMGEXP"
 )
 
+df$BGN_DATE <- mdy_hms(df$BGN_DATE)
 df$EVTYPE <- factor(df$EVTYPE)
-df$F <- as.integer(df$F)
+
 df$FATALITIES <- as.integer(df$FATALITIES)
 df$INJURIES   <- as.integer(df$INJURIES)
 
@@ -57,7 +61,7 @@ df$PROPDMGEXP <- factor(df$PROPDMGEXP)
 df$CROPDMGEXP <- toupper(df$CROPDMGEXP)
 df$CROPDMGEXP <- factor(df$CROPDMGEXP)
 
-
+df <- subset(df, BGN_DATE > as.Date("1996-01-01") )
 
 
 
