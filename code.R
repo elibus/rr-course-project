@@ -49,7 +49,8 @@ colnames(df) <- c(
   "CROPDMGEXP"
 )
 
-df$BGN_DATE <- mdy_hms(df$BGN_DATE)
+# df$BGN_DATE <- mdy_hms(df$BGN_DATE)
+df$BGN_DATE <- as.Date(df$BGN_DATE, "%m/%d/%Y")
 df$EVTYPE <- factor(df$EVTYPE)
 
 df$FATALITIES <- as.integer(df$FATALITIES)
