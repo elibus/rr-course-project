@@ -1,6 +1,30 @@
 # Required library
 require(data.table)
 require(lubridate)
+require(stringdist)
+
+# Functions
+apply_exp <- function(value, exp) {
+  exp <- as.character(exp)
+  switch(
+    exp,
+       K={
+         return(value * 1000);
+       },
+       M={
+         return(value * 1000000);
+       },
+       B={
+         return(value * 1000000000);
+       },
+       "0"={
+         return(value);
+       },
+       {
+         return(value);
+       }
+  )
+}
 
 # Download & load data
 fileUrl <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
@@ -51,6 +75,8 @@ colnames(df) <- c(
 
 # df$BGN_DATE <- mdy_hms(df$BGN_DATE)
 df$BGN_DATE <- as.Date(df$BGN_DATE, "%m/%d/%Y")
+df <- subset(df, BGN_DATE > as.Date("1996-01-01") )
+
 df$EVTYPE <- factor(df$EVTYPE)
 
 df$FATALITIES <- as.integer(df$FATALITIES)
@@ -62,7 +88,8 @@ df$PROPDMGEXP <- factor(df$PROPDMGEXP)
 df$CROPDMGEXP <- toupper(df$CROPDMGEXP)
 df$CROPDMGEXP <- factor(df$CROPDMGEXP)
 
-df <- subset(df, BGN_DATE > as.Date("1996-01-01") )
+df$PROPDMG <- mapply(apply_exp, df$PROPDMG, df$PROPDMGEXP)
+df$CROPDMG <- mapply(apply_exp, df$CROPDMG, df$CROPDMGEXP)
 
 
 
@@ -95,58 +122,3 @@ df <- subset(df, BGN_DATE > as.Date("1996-01-01") )
 
 
 
-my_conversion <- function(value, multiplier) {
-  switch(multiplier,
-         H={
-           return(value * 100);
-         },
-         K={
-           return(value * 1000);
-         },
-         M={
-           return(value * 1000000);
-         },
-         B={
-           return(value * 1000000000);
-         },
-         "0"={
-           return(value);
-         },
-         "?"={
-           return(value);
-         },
-         "-"={
-           return(value / 10);
-         },
-         "+"={
-           return(value);
-         },
-         "1"={
-           return(value * 10);
-         },
-         "2"={
-           return(value * 100);
-         },
-         "3"={
-           return(value * 1000);
-         },
-         "4"={
-           return(value * 10000);
-         },
-         "5"={
-           return(value * 100000);
-         },
-         "6"={
-           return(value * 1000000);
-         },
-         "7"={
-           return(value * 10000000);
-         },
-         "8"={
-           return(value * 100000000);
-         },
-         "9"={
-           return(value * -100000000);
-         }
-  )
-}
