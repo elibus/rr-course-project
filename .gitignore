@@ -1,3 +1,5 @@
 *.bz2
 *.csv
 *.pdf
+.RData
+.Rhistory
