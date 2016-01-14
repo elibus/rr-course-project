@@ -2,6 +2,7 @@
 require(data.table)
 require(lubridate)
 require(stringdist)
+require(dplyr)
 
 # Functions
 apply_exp <- function(value, exp) {
@@ -30,6 +31,11 @@ apply_exp <- function(value, exp) {
 fileUrl <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
 destFile <- "repdata-data-StormData.csv.bz2"
 csvFile  <- "repdata-data-StormData.csv"
+
+evtypesFile <- "evtypes.csv"
+
+evtypes <- readLines(evtypesFile)
+toupper(evtypes)
 
 # Download and unzip the dataset
 if (!file.exists(destFile)) {
@@ -75,18 +81,16 @@ colnames(df) <- c(
 
 # df$BGN_DATE <- mdy_hms(df$BGN_DATE)
 df$BGN_DATE <- as.Date(df$BGN_DATE, "%m/%d/%Y")
-df <- subset(df, BGN_DATE > as.Date("1996-01-01") )
+# df <- subset(df, BGN_DATE > as.Date("1996-01-01") )
 
-df$EVTYPE <- factor(df$EVTYPE)
+df$EVTYPE <- factor(toupper(df$EVTYPE))
 
 df$FATALITIES <- as.integer(df$FATALITIES)
 df$INJURIES   <- as.integer(df$INJURIES)
 
-df$PROPDMGEXP <- toupper(df$PROPDMGEXP)
-df$PROPDMGEXP <- factor(df$PROPDMGEXP)
+df$PROPDMGEXP <- factor(toupper(df$PROPDMGEXP))
 
-df$CROPDMGEXP <- toupper(df$CROPDMGEXP)
-df$CROPDMGEXP <- factor(df$CROPDMGEXP)
+df$CROPDMGEXP <- factor(toupper(df$CROPDMGEXP))
 
 df$PROPDMG <- mapply(apply_exp, df$PROPDMG, df$PROPDMGEXP)
 df$CROPDMG <- mapply(apply_exp, df$CROPDMG, df$CROPDMGEXP)
