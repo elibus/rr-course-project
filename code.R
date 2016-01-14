@@ -3,10 +3,11 @@ require(data.table)
 require(lubridate)
 require(stringdist)
 require(dplyr)
+require(ggplot2)
+require(lattice)
 
 # Functions
 apply_exp <- function(value, exp) {
-  exp <- as.character(exp)
   switch(
     exp,
        K={
@@ -27,15 +28,15 @@ apply_exp <- function(value, exp) {
   )
 }
 
+# Official event types
+evtypesFile <- "evtypes.csv"
+evtypes <- readLines(evtypesFile)
+evtypes <- toupper(evtypes)
+
 # Download & load data
 fileUrl <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
 destFile <- "repdata-data-StormData.csv.bz2"
 csvFile  <- "repdata-data-StormData.csv"
-
-evtypesFile <- "evtypes.csv"
-
-evtypes <- readLines(evtypesFile)
-toupper(evtypes)
 
 # Download and unzip the dataset
 if (!file.exists(destFile)) {
@@ -81,27 +82,31 @@ colnames(df) <- c(
 
 # df$BGN_DATE <- mdy_hms(df$BGN_DATE)
 df$BGN_DATE <- as.Date(df$BGN_DATE, "%m/%d/%Y")
-# df <- subset(df, BGN_DATE > as.Date("1996-01-01") )
+# df <- subset(df, BGN_DATE > as.Date("2011-01-01") )
 
-df$EVTYPE <- factor(toupper(df$EVTYPE))
+df$EVTYPE <- toupper(df$EVTYPE)
 
 df$FATALITIES <- as.integer(df$FATALITIES)
 df$INJURIES   <- as.integer(df$INJURIES)
 
-df$PROPDMGEXP <- factor(toupper(df$PROPDMGEXP))
-
-df$CROPDMGEXP <- factor(toupper(df$CROPDMGEXP))
+df$PROPDMGEXP <- toupper(df$PROPDMGEXP)
+df$CROPDMGEXP <- toupper(df$CROPDMGEXP)
 
 df$PROPDMG <- mapply(apply_exp, df$PROPDMG, df$PROPDMGEXP)
 df$CROPDMG <- mapply(apply_exp, df$CROPDMG, df$CROPDMGEXP)
 
 
+# Clean some EVTYPE
+df$EVTYPE <- gsub("TSTM", "THUNDERSTORM", df$EVTYPE)
+df$EVTYPE <- gsub(".*THUNDERSTORM WIND.*", "THUNDERSTORM WIND", df$EVTYPE)
+df$EVTYPE <- gsub("URBAN/SML STREAM FLD", "FLOOD", df$EVTYPE)
+df$EVTYPE <- gsub(".*FLOOD.*", "FLOOD", df$EVTYPE)
+df$EVTYPE <- gsub("^FOG$", "DENSE FOG", df$EVTYPE)
+df$EVTYPE <- gsub("^SNOW$", "HEAVY SNOW", df$EVTYPE)
+df$EVTYPE <- gsub("^WIND$", "HIGH WIND", df$EVTYPE)
+df$EVTYPE <- gsub(".*SURF.*", "HIGH SURF", df$EVTYPE)
 
-
-
-
-
-
+df$EVTYPE <- evtypes[amatch(df$EVTYPE, evtypes, method = "soundex")]
 
 
 
