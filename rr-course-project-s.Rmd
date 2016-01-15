@@ -22,7 +22,7 @@ This study uses the data between January 1996 and November 2011 provided by the 
 1. Across the United States, which types of events are most harmful with respect to population health?
 2. Across the United States, which types of events have the greatest economic consequences?
  
-To address the first question we look at the average of injuries and fatalities by extreme natural event type. Among those we select the top 5 event types.
+To address the first question we look at the average of injuries and fatalities grouped by extreme natural event type. Among those we select the top 5 event types.
 
 To address the second one we take a similar approach looking at the average of the economic loss (expressed as damages to properties and crops) and selecting the top five events that caused the highest losses. 
 
@@ -32,9 +32,10 @@ Our analysis shows:
 2. Hurricanes as the worst extreme natural events in terms of economic losses scoring, on average, 30 times more that the second event type (storms).
 
 ## Data processing
+This section describes data load and processing before the actual use.
 
 ### Required library
-```{r warning=FALSE}
+```{r message=FALSE, warning=FALSE}
 require(data.table)
 require(lubridate)
 require(stringdist)
@@ -45,7 +46,7 @@ require(gridExtra)
 
 ### Data load
 Here we load the data storm database selecting only relevant columns:
-```{r}
+```{r cache=TRUE}
 # Download & load data
 fileUrl <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
 destFile <- "repdata-data-StormData.csv.bz2"
@@ -97,12 +98,9 @@ df$BGN_DATE <- as.Date(df$BGN_DATE, "%m/%d/%Y")
 ```
 
 ### Data cleaning
-Data in the storm database is not clean. The field EVTYPE, that records the type of extreme natural event, can assume values from a predefined list of event types. This list can be found at: http://www.nws.noaa.gov/directives/sym/pd01016005curr.pdf
+Data in the storm database is not clean. To have it in better shape we make some transformations.
 
-Even though a predefined list of allowed values for the field EVTYPE exists the data is not clean and cannot be exaclty matched.
-To match the highest possible number of correct event types against the official list we perform a number data transformation.
-
-First, we load the official event types list
+First, we load the official event types list that will be used to clean the `EVTYPE` column.
 
 ```{r}
 # Official event types
@@ -111,18 +109,20 @@ evtypes <- readLines(evtypesFile)
 evtypes <- toupper(evtypes)
 ```
 
-Then we convert all strings to uppercase to avoid case matching issues. Fatalities and injuries are integers so they are converted too.
+Then we convert all relevant fields to uppercase to avoid case sensitiviness issues. 
 ```{r}
 df$EVTYPE <- toupper(df$EVTYPE)
-
-df$FATALITIES <- as.integer(df$FATALITIES)
-df$INJURIES   <- as.integer(df$INJURIES)
-
 df$PROPDMGEXP <- toupper(df$PROPDMGEXP)
 df$CROPDMGEXP <- toupper(df$CROPDMGEXP)
 ```
 
-Field PROPDMGEXP and CROPDMGEXP record the exponent of the numeric value found in the field PROPDMG and CROPDMG. We want to have a plain number to ease computation and plotting. We do this using the following function and applying it to PROPDMG and CROPDMG columns:
+Fatalities and injuries are integers so we can parse them as so.
+```{r}
+df$FATALITIES <- as.integer(df$FATALITIES)
+df$INJURIES   <- as.integer(df$INJURIES)
+```
+
+Field `PROPDMGEXP` and `CROPDMGEXP` record the exponent of the numeric value found in the field `PROPDMG` and `CROPDMG`. We want to have a plain number to ease computation and plotting. We do this using the following function and applying it to `PROPDMG` and `CROPDMG` columns:
 ```{r}
 # Functions
 apply_exp <- function(value, exp) {
@@ -171,6 +171,7 @@ apply_exp <- function(value, exp) {
       return(value * 10^7);
     },
     {
+      # Junk data, do nothing
       return(value);
     }
   )
@@ -180,6 +181,148 @@ df$PROPDMG <- mapply(apply_exp, df$PROPDMG, df$PROPDMGEXP)
 df$CROPDMG <- mapply(apply_exp, df$CROPDMG, df$CROPDMGEXP)
 ```
 
+
+#### Cleaning of `EVTYPE`
+The field `EVTYPE`, that records the type of extreme natural event, can assume values from a predefined list of event types. This list can be found at http://www.nws.noaa.gov/directives/sym/pd01016005curr.pdf and contains no 48 different event types. We would expect EVTYPE to contain only 48 unique values, actually it does contain 
+`r length(unique(df$EVTYPE))`.Some clean up is needed to match the highest possible number of correct event types against the official list. To achieve this we perform a number data transformations, few manual substitutions:
+
+
+```{r}
+# Clean some EVTYPE
+df$EVTYPE <- gsub("TSTM", "THUNDERSTORM", df$EVTYPE)
+df$EVTYPE <- gsub(".*THUNDERSTORM WIND.*", "THUNDERSTORM WIND", df$EVTYPE)
+df$EVTYPE <- gsub("URBAN/SML STREAM FLD", "FLOOD", df$EVTYPE)
+df$EVTYPE <- gsub(".*FLOOD.*", "FLOOD", df$EVTYPE)
+df$EVTYPE <- gsub("^FOG$", "DENSE FOG", df$EVTYPE)
+df$EVTYPE <- gsub("^SNOW$", "HEAVY SNOW", df$EVTYPE)
+df$EVTYPE <- gsub("^WIND$", "HIGH WIND", df$EVTYPE)
+df$EVTYPE <- gsub(".*SURF.*", "HIGH SURF", df$EVTYPE)
+```
+
+and some substitutions using the approximate match `amatch` function:
+```{r}
+df$EVTYPE <- evtypes[amatch(df$EVTYPE, evtypes, method = "soundex")]
+```
+
+The percentage of total `EVTYPE` records matched against the official 48 long list after the aformentioned transformations is higher than 99%. 
+```{r eval=TRUE, cache=TRUE}
+paste0(
+  formatC(
+    100 * (1 - sum(is.na(df$EVTYPE))/nrow(df)),
+    format = "f",
+    digits = 2
+  ),
+  "%"
+)
+```
+.
+
 The events in the storm database start in the year 1950 and end in November 2011. In the earlier years of the database there are generally fewer events recorded, most likely due to a lack of good records. In particular, only Tornados were recorded until January 1996. Data cannot be used for comparison
 
 ## Results
+In this section we present the results. We start computing the averages for `FATALITIES`, `INJURIES`, `PROPDMG` and `CROPDMG` aggregated by event types.
+
+```{r cache=TRUE}
+# Damage summary
+dmg_by_evtype <-
+  df %>%
+  group_by(EVTYPE) %>%
+  summarise(
+    avg_fatalities = mean(FATALITIES),
+    avg_injuries   = mean(INJURIES),
+    avg_propdmg    = mean(PROPDMG),
+    avg_cropdmg    = mean(CROPDMG)
+  )
+```
+
+We will use `FATALITIES` and `INJURIES` to explore which events are most harmful with respect to population health and `PROPDMG` and `CROPDMG` to understand the economic loss cause by each event.
+
+### Types of events are most harmful with respect to population health
+Since we are interested in understanding whose events are the most harmful to population health we select only the top 5 events ordered by the average of fatalities and injuries caused.
+
+The plots belows show 
+ 
+```{r cache=TRUE}
+# Plots for threats to human health
+top_evtypes_by_fatalities <-
+  head(
+    arrange(
+      dmg_by_evtype,
+      desc(avg_fatalities)
+    ),
+    5
+  )
+
+# This is required to enforce order on x axis since
+# lattice reorders the labes alphabetically
+x_labels <- 
+  factor(
+    top_evtypes_by_fatalities$EVTYPE, 
+    levels = unique(top_evtypes_by_fatalities$EVTYPE)
+  )
+
+# Fatalities
+fatalities_plot <- barchart(
+  avg_fatalities ~ x_labels,
+  data=top_evtypes_by_fatalities,
+  main = "Fatalities by event type (average) - top 5",
+  ylab = "Fatalities"
+)
+
+
+top_evtypes_by_injuries <- 
+  head(
+    arrange(dmg_by_evtype, desc(avg_injuries))
+    , 5
+  )
+
+x_labels <- 
+  factor(
+    top_evtypes_by_injuries$EVTYPE, 
+    levels = unique(top_evtypes_by_injuries$EVTYPE)
+  )
+
+injuries_plot <- barchart(
+  avg_injuries ~ x_labels,
+  data=top_evtypes_by_injuries,
+  main = "Injuries by event type (average) - top 5",
+  ylab = "Injuries"
+)
+
+grid.arrange(fatalities_plot, injuries_plot, ncol=1)
+```
+
+
+### Types of events have the greatest economic consequences
+To respond to the second question we are interested in understanding whose events caused the highest damages. Similarly to the previous case, we select only the top 5 events ordered by the average of damages to properties (`PROPDMG`) and to crops (`CROPDMG`).
+
+```{r cache=TRUE}
+## Plots for economic losses
+top_evtypes_by_economic_dmg <-
+  head(
+    arrange(
+      dmg_by_evtype,
+      desc(avg_propdmg+avg_cropdmg)
+    ),
+    5
+  )
+
+x_labels <-
+  factor(
+    top_evtypes_by_economic_dmg$EVTYPE,
+    levels = unique(top_evtypes_by_economic_dmg$EVTYPE)
+  )
+
+barchart(
+  avg_propdmg + avg_cropdmg ~ x_labels,
+  data=top_evtypes_by_economic_dmg,
+  stack = TRUE,
+  main = "Economic loss for event type (average) - top 5",
+  xlab = "Extreme Event Type",
+  ylab = "Average loss",
+  auto.key=list(
+    corner = c(.98, .98),
+    text = c("Property dmg", "Crop dmg")
+  )
+)
+```
