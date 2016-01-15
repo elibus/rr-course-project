@@ -51,4 +51,18 @@ top_five_by_total_health <- head(arrange(dmg_by_evtype, desc(total_fatalities+to
 
 x_labels <- factor(top_five_by_total_health$EVTYPE, levels = unique(top_five_by_total_health$EVTYPE))
 
-barchart(total_fatalities+total_injuries~x_labels, data=top_five_by_total_health, stack = TRUE)
+barchart( total_fatalities+total_injuries~x_labels,
+          data=top_five_by_total_health,
+          stack = TRUE,
+          auto.legend = TRUE,
+          auto.key=list(
+            space="top",
+            columns=4,
+            title="Health threats",
+            cex.title=1
+          )
+        )
+
+
+
+
