@@ -111,7 +111,7 @@ colnames(df) <- c(
 
 # df$BGN_DATE <- mdy_hms(df$BGN_DATE)
 df$BGN_DATE <- as.Date(df$BGN_DATE, "%m/%d/%Y")
-#df <- subset(df, BGN_DATE > as.Date("1996-01-01") )
+df <- subset(df, BGN_DATE > as.Date("1996-01-01") )
 
 df$EVTYPE <- toupper(df$EVTYPE)
 
@@ -144,12 +144,12 @@ dmg_by_evtype <-
   df %>%
   group_by(EVTYPE) %>%
   summarise(
-    avg_fatalities = mean(FATALITIES),
-    avg_injuries   = mean(INJURIES),
-    avg_propdmg    = mean(PROPDMG),
-    avg_cropdmg    = mean(CROPDMG)
+    total_fatalities = sum(FATALITIES),
+    total_injuries   = sum(INJURIES),
+    total_propdmg    = sum(PROPDMG),
+    total_cropdmg    = sum(CROPDMG)
   ) %>%
-  arrange(desc(avg_fatalities))
+  arrange(desc(total_fatalities))
 
 ## Plots for threats to human healt
 top_evtypes_by_fatalities <- head(dmg_by_evtype, 5)
@@ -196,11 +196,12 @@ barchart(
   data=top_evtypes_by_economic_dmg,
   stack = TRUE,
   main = "Economic loss for event type (average) - top 5",
-  xlab = "Extreme Event Type",
-  ylab = "Average loss",
+  xlab = "Weather Event",
+  ylab = "Loss",
   auto.key=list(
     corner = c(.98, .98),
     text = c("Property dmg", "Crop dmg")
-  )
+  ),
+  scales=list(x=list(labels=x_labels, cex=0.65))
 )
 
