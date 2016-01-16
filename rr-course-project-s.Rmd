@@ -1,5 +1,5 @@
 ---
-title: "Impacts of natural events to economy and population health in US"
+title: "Impacts of extreme weather events to economy and population health in US"
 output: 
   html_document:
     keep_md: true
